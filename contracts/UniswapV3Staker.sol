@@ -3,6 +3,7 @@ pragma solidity =0.7.6;
 pragma abicoder v2;
 
 import './interfaces/IUniswapV3Staker.sol';
+import './interfaces/IFarmController.sol';
 import './libraries/IncentiveId.sol';
 import './libraries/RewardMath.sol';
 import './libraries/NFTPositionInfo.sol';
@@ -43,6 +44,8 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
     IUniswapV3Factory public immutable override factory;
     /// @inheritdoc IUniswapV3Staker
     INonfungiblePositionManager public immutable override nonfungiblePositionManager;
+
+    IFarmController public FarmController;
 
     /// @inheritdoc IUniswapV3Staker
     uint256 public immutable override maxIncentiveStartLeadTime;
@@ -85,12 +88,14 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         IUniswapV3Factory _factory,
         INonfungiblePositionManager _nonfungiblePositionManager,
         uint256 _maxIncentiveStartLeadTime,
-        uint256 _maxIncentiveDuration
+        uint256 _maxIncentiveDuration,
+        IFarmController _FarmController
     ) {
         factory = _factory;
         nonfungiblePositionManager = _nonfungiblePositionManager;
         maxIncentiveStartLeadTime = _maxIncentiveStartLeadTime;
         maxIncentiveDuration = _maxIncentiveDuration;
+        FarmController = _FarmController;
     }
 
     /// @inheritdoc IUniswapV3Staker
@@ -152,37 +157,37 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         uint256 tokenId,
         bytes calldata data
     ) external override returns (bytes4) {
-        require(
-            msg.sender == address(nonfungiblePositionManager),
-            'UniswapV3Staker::onERC721Received: not a univ3 nft'
-        );
+        // require(
+        //     msg.sender == address(nonfungiblePositionManager),
+        //     'UniswapV3Staker::onERC721Received: not a univ3 nft'
+        // );
 
-        (, , , , , int24 tickLower, int24 tickUpper, , , , , ) = nonfungiblePositionManager.positions(tokenId);
+        // (, , , , , int24 tickLower, int24 tickUpper, , , , , ) = nonfungiblePositionManager.positions(tokenId);
 
-        deposits[tokenId] = Deposit({owner: from, numberOfStakes: 0, tickLower: tickLower, tickUpper: tickUpper});
-        emit DepositTransferred(tokenId, address(0), from);
+        // deposits[tokenId] = Deposit({owner: from, numberOfStakes: 0, tickLower: tickLower, tickUpper: tickUpper});
+        // emit DepositTransferred(tokenId, address(0), from);
 
-        if (data.length > 0) {
-            if (data.length == 160) {
-                _stakeToken(abi.decode(data, (IncentiveKey)), tokenId);
-            } else {
-                IncentiveKey[] memory keys = abi.decode(data, (IncentiveKey[]));
-                for (uint256 i = 0; i < keys.length; i++) {
-                    _stakeToken(keys[i], tokenId);
-                }
-            }
-        }
+        // if (data.length > 0) {
+        //     if (data.length == 160) {
+        //         _stakeToken(abi.decode(data, (IncentiveKey)), tokenId);
+        //     } else {
+        //         IncentiveKey[] memory keys = abi.decode(data, (IncentiveKey[]));
+        //         for (uint256 i = 0; i < keys.length; i++) {
+        //             _stakeToken(keys[i], tokenId);
+        //         }
+        //     }
+        // }
         return this.onERC721Received.selector;
     }
 
-    /// @inheritdoc IUniswapV3Staker
-    function transferDeposit(uint256 tokenId, address to) external override {
-        require(to != address(0), 'UniswapV3Staker::transferDeposit: invalid transfer recipient');
-        address owner = deposits[tokenId].owner;
-        require(owner == msg.sender, 'UniswapV3Staker::transferDeposit: can only be called by deposit owner');
-        deposits[tokenId].owner = to;
-        emit DepositTransferred(tokenId, owner, to);
-    }
+    // /// @inheritdoc IUniswapV3Staker
+    // function transferDeposit(uint256 tokenId, address to) external override {
+    //     require(to != address(0), 'UniswapV3Staker::transferDeposit: invalid transfer recipient');
+    //     address owner = deposits[tokenId].owner;
+    //     require(owner == msg.sender, 'UniswapV3Staker::transferDeposit: can only be called by deposit owner');
+    //     deposits[tokenId].owner = to;
+    //     emit DepositTransferred(tokenId, owner, to);
+    // }
 
     /// @inheritdoc IUniswapV3Staker
     function withdrawToken(
@@ -190,20 +195,26 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
         address to,
         bytes memory data
     ) external override {
-        require(to != address(this), 'UniswapV3Staker::withdrawToken: cannot withdraw to staker');
-        Deposit memory deposit = deposits[tokenId];
-        require(deposit.numberOfStakes == 0, 'UniswapV3Staker::withdrawToken: cannot withdraw token while staked');
-        require(deposit.owner == msg.sender, 'UniswapV3Staker::withdrawToken: only owner can withdraw token');
+        // require(to != address(this), 'UniswapV3Staker::withdrawToken: cannot withdraw to staker');
+        // Deposit memory deposit = deposits[tokenId];
+        // require(deposit.numberOfStakes == 0, 'UniswapV3Staker::withdrawToken: cannot withdraw token while staked');
+        // require(deposit.owner == msg.sender, 'UniswapV3Staker::withdrawToken: only owner can withdraw token');
 
-        delete deposits[tokenId];
-        emit DepositTransferred(tokenId, deposit.owner, address(0));
+        // delete deposits[tokenId];
+        // emit DepositTransferred(tokenId, deposit.owner, address(0));
 
-        nonfungiblePositionManager.safeTransferFrom(address(this), to, tokenId, data);
+        // nonfungiblePositionManager.safeTransferFrom(address(this), to, tokenId, data);
     }
 
     /// @inheritdoc IUniswapV3Staker
     function stakeToken(IncentiveKey memory key, uint256 tokenId) external override {
-        require(deposits[tokenId].owner == msg.sender, 'UniswapV3Staker::stakeToken: only owner can stake token');
+        IFarmController.PoolInfoByTokenId memory FCtokenInfo = FarmController.getPoolInfoByTokenId(tokenId);
+        require(FCtokenInfo.owner == msg.sender, 'UniswapV3Staker::stakeToken: only owner can stake token');
+        require(FCtokenInfo.active == true, 'UniswapV3Staker::stakeToken: only active NFT can stake token');
+        (, , , , , int24 tickLower, int24 tickUpper, , , , , ) = nonfungiblePositionManager.positions(tokenId);
+
+        deposits[tokenId] = Deposit({owner: msg.sender, numberOfStakes: 0, tickLower: tickLower, tickUpper: tickUpper});
+        emit DepositTransferred(tokenId, address(0), msg.sender);
 
         _stakeToken(key, tokenId);
     }
@@ -232,8 +243,9 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
 
         (, uint160 secondsPerLiquidityInsideX128, ) =
             key.pool.snapshotCumulativesInside(deposit.tickLower, deposit.tickUpper);
+        uint256 boostBalance = FarmController.boostBalance(deposit.owner);
         (uint256 reward, uint160 secondsInsideX128) =
-            RewardMath.computeRewardAmount(
+            RewardMath.computeRewardAmountWithBoosting(
                 incentive.totalRewardUnclaimed,
                 incentive.totalSecondsClaimedX128,
                 key.startTime,
@@ -241,7 +253,10 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
                 liquidity,
                 secondsPerLiquidityInsideInitialX128,
                 secondsPerLiquidityInsideX128,
-                block.timestamp
+                block.timestamp,
+                FarmController.nonBoostFactor(),
+                FarmController.boostTotalSupply(),
+                boostBalance
             );
 
         // if this overflows, e.g. after 2^32-1 full liquidity seconds have been claimed,
@@ -293,8 +308,8 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
 
         (, uint160 secondsPerLiquidityInsideX128, ) =
             key.pool.snapshotCumulativesInside(deposit.tickLower, deposit.tickUpper);
-
-        (reward, secondsInsideX128) = RewardMath.computeRewardAmount(
+        uint256 boostBalance = FarmController.boostBalance(deposit.owner);
+        (reward, secondsInsideX128) = RewardMath.computeRewardAmountWithBoosting(
             incentive.totalRewardUnclaimed,
             incentive.totalSecondsClaimedX128,
             key.startTime,
@@ -302,7 +317,10 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall {
             liquidity,
             secondsPerLiquidityInsideInitialX128,
             secondsPerLiquidityInsideX128,
-            block.timestamp
+            block.timestamp,
+            FarmController.nonBoostFactor(),
+            FarmController.boostTotalSupply(),
+            boostBalance
         );
     }
 

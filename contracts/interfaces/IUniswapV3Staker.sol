@@ -94,10 +94,10 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
     /// @return refund The remaining reward tokens when the incentive is ended
     function endIncentive(IncentiveKey memory key) external returns (uint256 refund);
 
-    /// @notice Transfers ownership of a deposit from the sender to the given recipient
-    /// @param tokenId The ID of the token (and the deposit) to transfer
-    /// @param to The new owner of the deposit
-    function transferDeposit(uint256 tokenId, address to) external;
+    // /// @notice Transfers ownership of a deposit from the sender to the given recipient
+    // /// @param tokenId The ID of the token (and the deposit) to transfer
+    // /// @param to The new owner of the deposit
+    // function transferDeposit(uint256 tokenId, address to) external;
 
     /// @notice Withdraws a Uniswap V3 LP token `tokenId` from this contract to the recipient `to`
     /// @param tokenId The unique identifier of an Uniswap V3 LP token

@@ -39,4 +39,36 @@ library RewardMath {
 
         reward = FullMath.mulDiv(totalRewardUnclaimed, secondsInsideX128, totalSecondsUnclaimedX128);
     }
+
+    function computeRewardAmountWithBoosting(
+        uint256 totalRewardUnclaimed,
+        uint160 totalSecondsClaimedX128,
+        uint256 startTime,
+        uint256 endTime,
+        uint128 liquidity,
+        uint160 secondsPerLiquidityInsideInitialX128,
+        uint160 secondsPerLiquidityInsideX128,
+        uint256 currentTime,
+        uint256 nonBoostFactor,
+        uint256 boostTotalSupply,
+        uint256 boostBalance
+    ) internal pure returns (uint256 reward, uint160 secondsInsideX128) {
+        // this should never be called before the start time
+        assert(currentTime >= startTime);
+
+        // this operation is safe, as the difference cannot be greater than 1/stake.liquidity
+        secondsInsideX128 = (secondsPerLiquidityInsideX128 - secondsPerLiquidityInsideInitialX128) * liquidity;
+
+        uint256 totalSecondsUnclaimedX128 =
+            ((Math.max(endTime, currentTime) - startTime) << 128) - totalSecondsClaimedX128;
+
+        uint256 l = (nonBoostFactor * secondsInsideX128) / 100;
+        if(boostTotalSupply > 0){
+            l += (((totalSecondsUnclaimedX128 * boostBalance) / boostTotalSupply) * (100 - nonBoostFactor)) / 100;
+        }
+        if (l > secondsInsideX128) {
+            l = secondsInsideX128;
+        }
+        reward = FullMath.mulDiv(totalRewardUnclaimed, l, totalSecondsUnclaimedX128);
+    }
 }
