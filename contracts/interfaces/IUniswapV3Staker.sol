@@ -11,9 +11,25 @@ import '@uniswap/v3-core/contracts/interfaces/IERC20Minimal.sol';
 import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol';
 import '@uniswap/v3-periphery/contracts/interfaces/IMulticall.sol';
 
+import '../interfaces/IFarmController.sol';
+
 /// @title Uniswap V3 Staker Interface
 /// @notice Allows staking nonfungible liquidity tokens in exchange for reward tokens
 interface IUniswapV3Staker is IERC721Receiver, IMulticall {
+    struct rewardParam{
+        uint256 totalRewardUnclaimed;
+        uint160 totalSecondsClaimedX128;
+        uint256 startTime;
+        uint256 endTime;
+        uint128 liquidity;
+        uint160 secondsPerLiquidityInsideInitialX128;
+        uint160 secondsPerLiquidityInsideX128;
+        uint256 currentTime;
+        IFarmController FarmController;
+        uint256 pid;
+        address owner;
+    }
+
     /// @param rewardToken The token being distributed as a reward
     /// @param pool The Uniswap V3 pool
     /// @param startTime The time when the incentive program begins
@@ -40,11 +56,11 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
     function maxIncentiveStartLeadTime() external view returns (uint256);
 
     /// @notice Represents a staking incentive
-    /// @param incentiveId The ID of the incentive computed from its parameters
+    /// @param reward The ID of the incentive computed from its parameters
     /// @return totalRewardUnclaimed The amount of reward token not yet claimed by users
     /// @return totalSecondsClaimedX128 Total liquidity-seconds claimed, represented as a UQ32.128
     /// @return numberOfStakes The count of deposits that are currently staked for the incentive
-    function incentives(bytes32 incentiveId)
+    function incentives(address reward)
         external
         view
         returns (
@@ -84,10 +100,10 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
     /// @return rewardsOwed The amount of the reward token claimable by the owner
     function rewards(IERC20Minimal rewardToken, address owner) external view returns (uint256 rewardsOwed);
 
-    /// @notice Creates a new liquidity mining incentive program
-    /// @param key Details of the incentive to create
-    /// @param reward The amount of reward tokens to be distributed
-    function createIncentive(IncentiveKey memory key, uint256 reward) external;
+    // /// @notice Creates a new liquidity mining incentive program
+    // /// @param key Details of the incentive to create
+    // /// @param reward The amount of reward tokens to be distributed
+    // function createIncentive(IncentiveKey memory key, uint256 reward, uint256 pid) external;
 
     /// @notice Ends an incentive after the incentive end time has passed and all stakes have been withdrawn
     /// @param key Details of the incentive to end
@@ -155,9 +171,9 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
     );
 
     /// @notice Event that can be emitted when a liquidity mining incentive has ended
-    /// @param incentiveId The incentive which is ending
+    /// @param reward The incentive which is ending
     /// @param refund The amount of reward tokens refunded
-    event IncentiveEnded(bytes32 indexed incentiveId, uint256 refund);
+    event IncentiveEnded(address indexed reward, uint256 refund);
 
     /// @notice Emitted when ownership of a deposit changes
     /// @param tokenId The ID of the deposit (and token) that is being transferred

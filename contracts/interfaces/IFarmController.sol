@@ -36,4 +36,7 @@ interface IFarmController {
     function nonBoostFactor() external view returns(uint);
     function boostTotalSupply() external view returns(uint);
     function boostBalance(address _user) external view returns(uint);
+    function getAllocPointByPid(uint256 pid) external view returns (uint256 allocPoint);
+    function totalAllocPoint() external view returns (uint);
+    function poolInfo(uint256 pid) external view returns (PoolInfo memory);
 }

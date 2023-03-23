@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity =0.7.6;
-
+pragma abicoder v2;
 import '@uniswap/v3-core/contracts/libraries/FullMath.sol';
 import '@openzeppelin/contracts/math/Math.sol';
-
+import '../interfaces/IFarmController.sol';
+import '../interfaces/IUniswapV3Staker.sol';
 /// @title Math for computing rewards
 /// @notice Allows computing rewards given some parameters of stakes and incentives
 library RewardMath {
@@ -41,26 +42,21 @@ library RewardMath {
     }
 
     function computeRewardAmountWithBoosting(
-        uint256 totalRewardUnclaimed,
-        uint160 totalSecondsClaimedX128,
-        uint256 startTime,
-        uint256 endTime,
-        uint128 liquidity,
-        uint160 secondsPerLiquidityInsideInitialX128,
-        uint160 secondsPerLiquidityInsideX128,
-        uint256 currentTime,
-        uint256 nonBoostFactor,
-        uint256 boostTotalSupply,
-        uint256 boostBalance
-    ) internal pure returns (uint256 reward, uint160 secondsInsideX128) {
+        IUniswapV3Staker.rewardParam memory params
+    ) internal view returns (uint256 reward, uint160 secondsInsideX128) {
         // this should never be called before the start time
-        assert(currentTime >= startTime);
-
+        assert(params.currentTime >= params.startTime);
+        uint256 nonBoostFactor = params.FarmController.nonBoostFactor();
+        uint256 boostTotalSupply = params.FarmController.boostTotalSupply();
+        uint256 boostBalance = params.FarmController.boostBalance(params.owner);
+        uint256 allocPoint = params.FarmController.getAllocPointByPid(params.pid);
+        uint256 totalAllocPoint = params.FarmController.totalAllocPoint();
+        uint256 totalRewardUnclaimedWeighted = params.totalRewardUnclaimed * allocPoint / totalAllocPoint;
         // this operation is safe, as the difference cannot be greater than 1/stake.liquidity
-        secondsInsideX128 = (secondsPerLiquidityInsideX128 - secondsPerLiquidityInsideInitialX128) * liquidity;
+        secondsInsideX128 = (params.secondsPerLiquidityInsideX128 - params.secondsPerLiquidityInsideInitialX128) * params.liquidity;
 
         uint256 totalSecondsUnclaimedX128 =
-            ((Math.max(endTime, currentTime) - startTime) << 128) - totalSecondsClaimedX128;
+            ((Math.max(params.endTime, params.currentTime) - params.startTime) << 128) - params.totalSecondsClaimedX128;
 
         uint256 l = (nonBoostFactor * secondsInsideX128) / 100;
         if(boostTotalSupply > 0){
@@ -69,6 +65,6 @@ library RewardMath {
         if (l > secondsInsideX128) {
             l = secondsInsideX128;
         }
-        reward = FullMath.mulDiv(totalRewardUnclaimed, l, totalSecondsUnclaimedX128);
+        reward = FullMath.mulDiv(totalRewardUnclaimedWeighted, l, totalSecondsUnclaimedX128);
     }
 }
