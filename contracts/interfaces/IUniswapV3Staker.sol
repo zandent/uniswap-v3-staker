@@ -42,6 +42,16 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
         uint256 endTime;
         address refundee;
     }
+    /// @param rewardToken The token being distributed as a reward
+    /// @param startTime The time when the incentive program begins
+    /// @param endTime The time when rewards stop accruing
+    /// @param refundee The address which receives any remaining reward tokens when the incentive is ended
+    struct IncentiveKeyIgnoringPool {
+        IERC20Minimal rewardToken;
+        uint256 startTime;
+        uint256 endTime;
+        address refundee;
+    }
 
     /// @notice The Uniswap V3 Factory
     function factory() external view returns (IUniswapV3Factory);
@@ -56,11 +66,11 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
     function maxIncentiveStartLeadTime() external view returns (uint256);
 
     /// @notice Represents a staking incentive
-    /// @param reward The ID of the incentive computed from its parameters
+    /// @param key The ID of the incentive computed from its parameters
     /// @return totalRewardUnclaimed The amount of reward token not yet claimed by users
     /// @return totalSecondsClaimedX128 Total liquidity-seconds claimed, represented as a UQ32.128
     /// @return numberOfStakes The count of deposits that are currently staked for the incentive
-    function incentives(address reward)
+    function incentives(bytes32 key)
         external
         view
         returns (

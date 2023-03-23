@@ -54,8 +54,8 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall, NeedInitialize, Ownable
     /// @inheritdoc IUniswapV3Staker
     uint256 public override maxIncentiveDuration;
 
-    /// @dev address refers to the return value of IncentiveId.compute
-    mapping(address => Incentive) public override incentives;
+    /// @dev bytes32 refers to the return value of IncentiveId.compute
+    mapping(bytes32 => Incentive) public override incentives;
 
     /// @dev pool address to pid in farmcontroller
     mapping(address => uint256) public pidsInFC;
@@ -121,9 +121,9 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall, NeedInitialize, Ownable
         IFarmController.PoolInfo memory pif = FarmController.poolInfo(pid);
         require(pif.token0 == key.pool.token0() && pif.token1 == key.pool.token1() && pif.fee == key.pool.fee(), "UniswapV3Staker::createIncentive: pid must be match the pool address");
 
-        // bytes32 incentiveId = IncentiveId.compute(key);
+        bytes32 incentiveIdIP = IncentiveId.computeIgnoringPool(key);
 
-        incentives[address(key.rewardToken)].totalRewardUnclaimed += reward;
+        incentives[incentiveIdIP].totalRewardUnclaimed += reward;
         pidsInFC[address(key.pool)] = pid;
         if (reward>0){
             TransferHelperExtended.safeTransferFrom(address(key.rewardToken), msg.sender, address(this), reward);
@@ -136,8 +136,8 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall, NeedInitialize, Ownable
     function endIncentive(IncentiveKey memory key) external override returns (uint256 refund) {
         require(block.timestamp >= key.endTime, 'UniswapV3Staker::endIncentive: cannot end incentive before end time');
 
-        // bytes32 incentiveId = IncentiveId.compute(key);
-        Incentive storage incentive = incentives[address(key.rewardToken)];
+        bytes32 incentiveIdIP = IncentiveId.computeIgnoringPool(key);
+        Incentive storage incentive = incentives[incentiveIdIP];
 
         refund = incentive.totalRewardUnclaimed;
 
@@ -239,12 +239,12 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall, NeedInitialize, Ownable
         }
 
         bytes32 incentiveId = IncentiveId.compute(key);
-
+        bytes32 incentiveIdIP = IncentiveId.computeIgnoringPool(key);
         (uint160 secondsPerLiquidityInsideInitialX128, uint128 liquidity) = stakes(tokenId, incentiveId);
 
         require(liquidity != 0, 'UniswapV3Staker::unstakeToken: stake does not exist');
 
-        Incentive storage incentive = incentives[address(key.rewardToken)];
+        Incentive storage incentive = incentives[incentiveIdIP];
 
         deposits[tokenId].numberOfStakes--;
         incentive.numberOfStakes--;
@@ -252,7 +252,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall, NeedInitialize, Ownable
         (, uint160 secondsPerLiquidityInsideX128, ) =
             key.pool.snapshotCumulativesInside(deposit.tickLower, deposit.tickUpper);
         uint256 pid = pidsInFC[address(key.pool)];
-        address tokenOwner = deposit.owner;
+        // address tokenOwner = deposit.owner;
         // uint256 boostBalance = FarmController.boostBalance(deposit.owner);
         // IFarmController.PoolInfo memory pif = FarmController.getPoolInfoByPid(pidsInFC[address(key.pool)]);
         // uint256 totalRewardUnclaimedWeighted = incentive.totalRewardUnclaimed * pif.allocPoint / pidsInFC[address(key.pool)];
@@ -314,12 +314,12 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall, NeedInitialize, Ownable
         returns (uint256 reward, uint160 secondsInsideX128)
     {
         bytes32 incentiveId = IncentiveId.compute(key);
-
+        bytes32 incentiveIdIP = IncentiveId.computeIgnoringPool(key);
         (uint160 secondsPerLiquidityInsideInitialX128, uint128 liquidity) = stakes(tokenId, incentiveId);
         require(liquidity > 0, 'UniswapV3Staker::getRewardInfo: stake does not exist');
 
         Deposit memory deposit = deposits[tokenId];
-        Incentive memory incentive = incentives[address(key.rewardToken)];
+        Incentive memory incentive = incentives[incentiveIdIP];
 
         (, uint160 secondsPerLiquidityInsideX128, ) =
             key.pool.snapshotCumulativesInside(deposit.tickLower, deposit.tickUpper);
@@ -351,9 +351,9 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall, NeedInitialize, Ownable
         require(block.timestamp < key.endTime, 'UniswapV3Staker::stakeToken: incentive ended');
 
         bytes32 incentiveId = IncentiveId.compute(key);
-
+        bytes32 incentiveIdIP = IncentiveId.computeIgnoringPool(key);
         require(
-            incentives[address(key.rewardToken)].totalRewardUnclaimed > 0,
+            incentives[incentiveIdIP].totalRewardUnclaimed > 0,
             'UniswapV3Staker::stakeToken: non-existent incentive'
         );
         require(
@@ -368,7 +368,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall, NeedInitialize, Ownable
         require(liquidity > 0, 'UniswapV3Staker::stakeToken: cannot stake token with 0 liquidity');
 
         deposits[tokenId].numberOfStakes++;
-        incentives[address(key.rewardToken)].numberOfStakes++;
+        incentives[incentiveIdIP].numberOfStakes++;
 
         (, uint160 secondsPerLiquidityInsideX128, ) = pool.snapshotCumulativesInside(tickLower, tickUpper);
 
