@@ -9,7 +9,7 @@ import './libraries/RewardMath.sol';
 import './libraries/NFTPositionInfo.sol';
 import './libraries/TransferHelperExtended.sol';
 import "./utils/NeedInitialize.sol";
-import "./roles/Ownable.sol";
+// import "./roles/Ownable.sol";
 
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
@@ -19,7 +19,7 @@ import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.s
 import '@uniswap/v3-periphery/contracts/base/Multicall.sol';
 
 /// @title Uniswap V3 canonical staking interface
-contract UniswapV3Staker is IUniswapV3Staker, Multicall, NeedInitialize, Ownable {
+contract UniswapV3Staker is IUniswapV3Staker, Multicall, NeedInitialize {
     /// @notice Represents a staking incentive
     struct Incentive {
         uint256 totalRewardUnclaimed;
@@ -103,7 +103,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall, NeedInitialize, Ownable
         FarmController = _FarmController;
     }
 
-    function createIncentive(IncentiveKey memory key, uint256 reward, uint256 pid) external onlyOwner {
+    function createIncentive(IncentiveKey memory key, uint256 reward, uint256 pid) external override {
         // require(reward > 0, 'UniswapV3Staker::createIncentive: reward must be positive');
         require(
             block.timestamp <= key.startTime,
@@ -119,7 +119,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall, NeedInitialize, Ownable
             'UniswapV3Staker::createIncentive: incentive duration is too long'
         );
         IFarmController.PoolInfo memory pif = FarmController.poolInfo(pid);
-        require(pif.token0 == key.pool.token0() && pif.token1 == key.pool.token1() && pif.fee == key.pool.fee(), "UniswapV3Staker::createIncentive: pid must be match the pool address");
+        require(((pif.token0 == key.pool.token0() && pif.token1 == key.pool.token1())||(pif.token0 == key.pool.token1() && pif.token1 == key.pool.token0()) )&& pif.fee == key.pool.fee(), "UniswapV3Staker::createIncentive: pid must be match the pool address");
 
         bytes32 incentiveIdIP = IncentiveId.computeIgnoringPool(key);
 

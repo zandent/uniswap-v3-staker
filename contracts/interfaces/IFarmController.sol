@@ -28,6 +28,7 @@ interface IFarmController {
         bool active;    //true if the token id is deposited into address(this)
         address token0; // Address of token0 contract.
         address token1; // Address of token1 contract.
+        uint24 fee; // fee tier of the pool
         address owner; // owner of NFT
     }
 
