@@ -163,7 +163,15 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
     function getRewardInfo(IncentiveKey memory key, uint256 tokenId)
         external
         returns (uint256 reward, uint160 secondsInsideX128);
-
+    
+    /// @notice unstake key1, claim all rewards from previous icnentives and stake to key2
+    /// @param key1 The key of the incentive
+    /// @param key2 The key of the incentive
+    /// @param tokenId The ID of the token
+    /// @param rewardToken The token being distributed as a reward
+    /// @param to The address where claimed rewards will be sent to
+    function unstakeClaimRewardandStakeNew(IncentiveKey memory key1, IncentiveKey memory key2, uint256 tokenId, IERC20Minimal rewardToken,
+            address to) external;
     /// @notice Event emitted when a liquidity mining incentive has been created
     /// @param rewardToken The token being distributed as a reward
     /// @param pool The Uniswap V3 pool

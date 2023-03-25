@@ -252,10 +252,6 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall, NeedInitialize {
         (, uint160 secondsPerLiquidityInsideX128, ) =
             key.pool.snapshotCumulativesInside(deposit.tickLower, deposit.tickUpper);
         uint256 pid = pidsInFC[address(key.pool)];
-        // address tokenOwner = deposit.owner;
-        // uint256 boostBalance = FarmController.boostBalance(deposit.owner);
-        // IFarmController.PoolInfo memory pif = FarmController.getPoolInfoByPid(pidsInFC[address(key.pool)]);
-        // uint256 totalRewardUnclaimedWeighted = incentive.totalRewardUnclaimed * pif.allocPoint / pidsInFC[address(key.pool)];
         rewardParam memory params = rewardParam ( {
             totalRewardUnclaimed:incentive.totalRewardUnclaimed,
             totalSecondsClaimedX128:incentive.totalSecondsClaimedX128,
@@ -305,7 +301,13 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall, NeedInitialize {
 
         emit RewardClaimed(to, reward);
     }
-
+    /// @inheritdoc IUniswapV3Staker
+    function unstakeClaimRewardandStakeNew(IncentiveKey memory key1, IncentiveKey memory key2, uint256 tokenId, IERC20Minimal rewardToken,
+        address to) external override{
+        _internalunstakeToken(key1, tokenId);
+        _internalclaimReward(rewardToken,to,0);
+        _internalstakeToken(key2, tokenId);
+    }
     /// @inheritdoc IUniswapV3Staker
     function getRewardInfo(IncentiveKey memory key, uint256 tokenId)
         external
@@ -324,9 +326,6 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall, NeedInitialize {
         (, uint160 secondsPerLiquidityInsideX128, ) =
             key.pool.snapshotCumulativesInside(deposit.tickLower, deposit.tickUpper);
         uint256 pid = pidsInFC[address(key.pool)];
-        // uint256 boostBalance = FarmController.boostBalance(deposit.owner);
-        // IFarmController.PoolInfo memory pif = FarmController.getPoolInfoByPid(pidsInFC[address(key.pool)]);
-        // uint256 totalRewardUnclaimedWeighted = incentive.totalRewardUnclaimed * pif.allocPoint / FarmController.totalAllocPoint();
         rewardParam memory params = rewardParam ( {
             totalRewardUnclaimed:incentive.totalRewardUnclaimed,
             totalSecondsClaimedX128:incentive.totalSecondsClaimedX128,
@@ -385,5 +384,88 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall, NeedInitialize {
         }
 
         emit TokenStaked(tokenId, incentiveId, liquidity);
+    }
+
+    function _internalstakeToken(IncentiveKey memory key, uint256 tokenId) private {
+        IFarmController.PoolInfoByTokenId memory FCtokenInfo = FarmController.getPoolInfoByTokenId(tokenId);
+        require(FCtokenInfo.owner == msg.sender, 'UniswapV3Staker::stakeToken: only owner can stake token');
+        require(FCtokenInfo.active == true, 'UniswapV3Staker::stakeToken: only active NFT can stake token');
+        (, , , , , int24 tickLower, int24 tickUpper, , , , , ) = nonfungiblePositionManager.positions(tokenId);
+
+        deposits[tokenId] = Deposit({owner: msg.sender, numberOfStakes: 0, tickLower: tickLower, tickUpper: tickUpper});
+        emit DepositTransferred(tokenId, address(0), msg.sender);
+
+        _stakeToken(key, tokenId);
+    }
+    function _internalunstakeToken(IncentiveKey memory key, uint256 tokenId) private {
+        Deposit memory deposit = deposits[tokenId];
+        // anyone can call unstakeToken if the block time is after the end time of the incentive
+        if (block.timestamp < key.endTime) {
+            require(
+                deposit.owner == msg.sender,
+                'UniswapV3Staker::unstakeToken: only owner can withdraw token before incentive end time'
+            );
+        }
+
+        bytes32 incentiveId = IncentiveId.compute(key);
+        bytes32 incentiveIdIP = IncentiveId.computeIgnoringPool(key);
+        (uint160 secondsPerLiquidityInsideInitialX128, uint128 liquidity) = stakes(tokenId, incentiveId);
+
+        require(liquidity != 0, 'UniswapV3Staker::unstakeToken: stake does not exist');
+
+        Incentive storage incentive = incentives[incentiveIdIP];
+
+        deposits[tokenId].numberOfStakes--;
+        incentive.numberOfStakes--;
+
+        (, uint160 secondsPerLiquidityInsideX128, ) =
+            key.pool.snapshotCumulativesInside(deposit.tickLower, deposit.tickUpper);
+        uint256 pid = pidsInFC[address(key.pool)];
+        rewardParam memory params = rewardParam ( {
+            totalRewardUnclaimed:incentive.totalRewardUnclaimed,
+            totalSecondsClaimedX128:incentive.totalSecondsClaimedX128,
+            startTime:key.startTime,
+            endTime:key.endTime,
+            liquidity: liquidity,
+            secondsPerLiquidityInsideInitialX128: secondsPerLiquidityInsideInitialX128,
+            secondsPerLiquidityInsideX128: secondsPerLiquidityInsideX128,
+            currentTime: block.timestamp,
+            FarmController: FarmController,
+            pid: pid,
+            owner: deposit.owner
+        });
+        (uint256 reward, uint160 secondsInsideX128) =
+            RewardMath.computeRewardAmountWithBoosting(
+                params
+            );
+
+        // if this overflows, e.g. after 2^32-1 full liquidity seconds have been claimed,
+        // reward rate will fall drastically so it's safe
+        incentive.totalSecondsClaimedX128 += secondsInsideX128;
+        // reward is never greater than total reward unclaimed
+        incentive.totalRewardUnclaimed -= reward;
+        // this only overflows if a token has a total supply greater than type(uint256).max
+        rewards[key.rewardToken][deposit.owner] += reward;
+
+        Stake storage stake = _stakes[tokenId][incentiveId];
+        delete stake.secondsPerLiquidityInsideInitialX128;
+        delete stake.liquidityNoOverflow;
+        if (liquidity >= type(uint96).max) delete stake.liquidityIfOverflow;
+        emit TokenUnstaked(tokenId, incentiveId);
+    }
+    function _internalclaimReward(
+        IERC20Minimal rewardToken,
+        address to,
+        uint256 amountRequested
+    ) private returns (uint256 reward) {
+        reward = rewards[rewardToken][msg.sender];
+        if (amountRequested != 0 && amountRequested < reward) {
+            reward = amountRequested;
+        }
+
+        rewards[rewardToken][msg.sender] -= reward;
+        TransferHelperExtended.safeTransfer(address(rewardToken), to, reward);
+
+        emit RewardClaimed(to, reward);
     }
 }
