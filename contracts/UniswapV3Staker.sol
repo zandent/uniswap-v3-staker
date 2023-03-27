@@ -291,7 +291,8 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall, NeedInitialize {
         address to,
         uint256 amountRequested
     ) external override returns (uint256 reward) {
-        reward = rewards[rewardToken][msg.sender];
+        address from = (msg.sender == address(FarmController))? to : msg.sender;
+        reward = rewards[rewardToken][from];
         if (amountRequested != 0 && amountRequested < reward) {
             reward = amountRequested;
         }
