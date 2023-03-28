@@ -215,7 +215,6 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
     /// @param reward The amount of reward tokens claimed
     event RewardClaimed(address indexed to, uint256 reward);
 }
-// // SPDX-License-Identifier: GPL-2.0-or-later
 // pragma solidity =0.7.6;
 
 // import 'algebra/contracts/libraries/FullMath.sol';
