@@ -65,6 +65,7 @@ library RewardMath {
         if (l > secondsInsideX128) {
             l = secondsInsideX128;
         }
+        // l = secondsInsideX128;
         reward = FullMath.mulDiv(totalRewardUnclaimedWeighted, l, totalSecondsUnclaimedX128);
     }
 }

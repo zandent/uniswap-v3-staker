@@ -239,12 +239,11 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall, NeedInitialize {
         }
 
         bytes32 incentiveId = IncentiveId.compute(key);
-        bytes32 incentiveIdIP = IncentiveId.computeIgnoringPool(key);
         (uint160 secondsPerLiquidityInsideInitialX128, uint128 liquidity) = stakes(tokenId, incentiveId);
 
         require(liquidity != 0, 'UniswapV3Staker::unstakeToken: stake does not exist');
 
-        Incentive storage incentive = incentives[incentiveIdIP];
+        Incentive storage incentive = incentives[IncentiveId.computeIgnoringPool(key)];
 
         deposits[tokenId].numberOfStakes--;
         incentive.numberOfStakes--;
@@ -291,8 +290,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall, NeedInitialize {
         address to,
         uint256 amountRequested
     ) external override returns (uint256 reward) {
-        address from = (msg.sender == address(FarmController))? to : msg.sender;
-        reward = rewards[rewardToken][from];
+        reward = rewards[rewardToken][msg.sender];
         if (amountRequested != 0 && amountRequested < reward) {
             reward = amountRequested;
         }
@@ -305,9 +303,10 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall, NeedInitialize {
     /// @inheritdoc IUniswapV3Staker
     function unstakeClaimRewardandStakeNew(IncentiveKey memory key1, IncentiveKey memory key2, uint256 tokenId, IERC20Minimal rewardToken,
         address to) external override{
-        _internalunstakeToken(key1, tokenId);
+        require(address(FarmController) == msg.sender, "UniswapV3Staker: Only farmer can use the function");
+        _internalunstakeToken(key1, tokenId, to);
         _internalclaimReward(rewardToken,to,0);
-        _internalstakeToken(key2, tokenId);
+        _internalstakeToken(key2, tokenId, to);
     }
     /// @inheritdoc IUniswapV3Staker
     function getRewardInfo(IncentiveKey memory key, uint256 tokenId)
@@ -387,34 +386,33 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall, NeedInitialize {
         emit TokenStaked(tokenId, incentiveId, liquidity);
     }
 
-    function _internalstakeToken(IncentiveKey memory key, uint256 tokenId) private {
+    function _internalstakeToken(IncentiveKey memory key, uint256 tokenId, address to) private {
         IFarmController.PoolInfoByTokenId memory FCtokenInfo = FarmController.getPoolInfoByTokenId(tokenId);
-        require(FCtokenInfo.owner == msg.sender, 'UniswapV3Staker::stakeToken: only owner can stake token');
+        require(FCtokenInfo.owner == to, 'UniswapV3Staker::stakeToken: only owner can stake token');
         require(FCtokenInfo.active == true, 'UniswapV3Staker::stakeToken: only active NFT can stake token');
         (, , , , , int24 tickLower, int24 tickUpper, , , , , ) = nonfungiblePositionManager.positions(tokenId);
 
-        deposits[tokenId] = Deposit({owner: msg.sender, numberOfStakes: 0, tickLower: tickLower, tickUpper: tickUpper});
-        emit DepositTransferred(tokenId, address(0), msg.sender);
+        deposits[tokenId] = Deposit({owner: to, numberOfStakes: 0, tickLower: tickLower, tickUpper: tickUpper});
+        emit DepositTransferred(tokenId, address(0), to);
 
         _stakeToken(key, tokenId);
     }
-    function _internalunstakeToken(IncentiveKey memory key, uint256 tokenId) private {
+    function _internalunstakeToken(IncentiveKey memory key, uint256 tokenId, address to) private {
         Deposit memory deposit = deposits[tokenId];
         // anyone can call unstakeToken if the block time is after the end time of the incentive
         if (block.timestamp < key.endTime) {
             require(
-                deposit.owner == msg.sender,
+                deposit.owner == to,
                 'UniswapV3Staker::unstakeToken: only owner can withdraw token before incentive end time'
             );
         }
 
         bytes32 incentiveId = IncentiveId.compute(key);
-        bytes32 incentiveIdIP = IncentiveId.computeIgnoringPool(key);
         (uint160 secondsPerLiquidityInsideInitialX128, uint128 liquidity) = stakes(tokenId, incentiveId);
 
         require(liquidity != 0, 'UniswapV3Staker::unstakeToken: stake does not exist');
 
-        Incentive storage incentive = incentives[incentiveIdIP];
+        Incentive storage incentive = incentives[IncentiveId.computeIgnoringPool(key)];
 
         deposits[tokenId].numberOfStakes--;
         incentive.numberOfStakes--;
@@ -459,12 +457,12 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall, NeedInitialize {
         address to,
         uint256 amountRequested
     ) private returns (uint256 reward) {
-        reward = rewards[rewardToken][msg.sender];
+        reward = rewards[rewardToken][to];
         if (amountRequested != 0 && amountRequested < reward) {
             reward = amountRequested;
         }
 
-        rewards[rewardToken][msg.sender] -= reward;
+        rewards[rewardToken][to] -= reward;
         TransferHelperExtended.safeTransfer(address(rewardToken), to, reward);
 
         emit RewardClaimed(to, reward);
