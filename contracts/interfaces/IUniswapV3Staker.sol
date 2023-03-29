@@ -138,12 +138,14 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
     /// @notice Stakes a Uniswap V3 LP token
     /// @param key The key of the incentive for which to stake the NFT
     /// @param tokenId The ID of the token to stake
-    function stakeToken(IncentiveKey memory key, uint256 tokenId) external;
+    /// @param owner The owner of the token to stake
+    function stakeToken(IncentiveKey memory key, uint256 tokenId, address owner) external;
 
     /// @notice Unstakes a Uniswap V3 LP token
     /// @param key The key of the incentive for which to unstake the NFT
     /// @param tokenId The ID of the token to unstake
-    function unstakeToken(IncentiveKey memory key, uint256 tokenId) external;
+    /// @param owner The owner of the token to stake
+    function unstakeToken(IncentiveKey memory key, uint256 tokenId, address owner) external;
 
     /// @notice Transfers `amountRequested` of accrued `rewardToken` rewards from the contract to the recipient `to`
     /// @param rewardToken The token being distributed as a reward

@@ -56,7 +56,7 @@ library RewardMath {
         secondsInsideX128 = (params.secondsPerLiquidityInsideX128 - params.secondsPerLiquidityInsideInitialX128) * params.liquidity;
 
         uint256 totalSecondsUnclaimedX128 =
-            ((Math.max(params.endTime, params.currentTime) - params.startTime) << 128) - params.totalSecondsClaimedX128;
+            ((params.endTime - params.startTime) << 128) - params.totalSecondsClaimedX128;
 
         uint256 l = (nonBoostFactor * secondsInsideX128) / 100;
         if(boostTotalSupply > 0){
@@ -65,7 +65,6 @@ library RewardMath {
         if (l > secondsInsideX128) {
             l = secondsInsideX128;
         }
-        // l = secondsInsideX128;
-        reward = FullMath.mulDiv(totalRewardUnclaimedWeighted, l, totalSecondsUnclaimedX128);
+        reward = (params.currentTime > params.endTime)? 0 : FullMath.mulDiv(totalRewardUnclaimedWeighted, l, totalSecondsUnclaimedX128);
     }
 }

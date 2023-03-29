@@ -140,20 +140,22 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall, NeedInitialize {
         Incentive storage incentive = incentives[incentiveIdIP];
 
         refund = incentive.totalRewardUnclaimed;
+        if(refund > 0) {
+            // require(refund > 0, 'UniswapV3Staker::endIncentive: no refund available');
+            // No need to check stakes. Force to move
+            // require(
+            //     incentive.numberOfStakes == 0,
+            //     'UniswapV3Staker::endIncentive: cannot end incentive while deposits are staked'
+            // );
 
-        require(refund > 0, 'UniswapV3Staker::endIncentive: no refund available');
-        require(
-            incentive.numberOfStakes == 0,
-            'UniswapV3Staker::endIncentive: cannot end incentive while deposits are staked'
-        );
+            // issue the refund
+            incentive.totalRewardUnclaimed = 0;
+            TransferHelperExtended.safeTransfer(address(key.rewardToken), key.refundee, refund);
 
-        // issue the refund
-        incentive.totalRewardUnclaimed = 0;
-        TransferHelperExtended.safeTransfer(address(key.rewardToken), key.refundee, refund);
+            // note we never clear totalSecondsClaimedX128
 
-        // note we never clear totalSecondsClaimedX128
-
-        emit IncentiveEnded(address(key.rewardToken), refund);
+            emit IncentiveEnded(address(key.rewardToken), refund);
+        }
     }
 
     /// @notice Upon receiving a Uniswap V3 ERC721, creates the token deposit setting owner to `from`. Also stakes token
@@ -215,25 +217,26 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall, NeedInitialize {
     }
 
     /// @inheritdoc IUniswapV3Staker
-    function stakeToken(IncentiveKey memory key, uint256 tokenId) external override {
+    function stakeToken(IncentiveKey memory key, uint256 tokenId, address owner) external override {
+        address from = (address(FarmController) == msg.sender)? owner : msg.sender;
         IFarmController.PoolInfoByTokenId memory FCtokenInfo = FarmController.getPoolInfoByTokenId(tokenId);
-        require(FCtokenInfo.owner == msg.sender, 'UniswapV3Staker::stakeToken: only owner can stake token');
+        require(FCtokenInfo.owner == from, 'UniswapV3Staker::stakeToken: only owner can stake token');
         require(FCtokenInfo.active == true, 'UniswapV3Staker::stakeToken: only active NFT can stake token');
         (, , , , , int24 tickLower, int24 tickUpper, , , , , ) = nonfungiblePositionManager.positions(tokenId);
 
-        deposits[tokenId] = Deposit({owner: msg.sender, numberOfStakes: 0, tickLower: tickLower, tickUpper: tickUpper});
-        emit DepositTransferred(tokenId, address(0), msg.sender);
+        deposits[tokenId] = Deposit({owner: from, numberOfStakes: 0, tickLower: tickLower, tickUpper: tickUpper});
+        emit DepositTransferred(tokenId, address(0), from);
 
         _stakeToken(key, tokenId);
     }
 
     /// @inheritdoc IUniswapV3Staker
-    function unstakeToken(IncentiveKey memory key, uint256 tokenId) external override {
+    function unstakeToken(IncentiveKey memory key, uint256 tokenId, address owner) external override {
         Deposit memory deposit = deposits[tokenId];
         // anyone can call unstakeToken if the block time is after the end time of the incentive
         if (block.timestamp < key.endTime) {
             require(
-                deposit.owner == msg.sender,
+                ((address(FarmController) == msg.sender) && deposit.owner == owner) || deposit.owner == msg.sender,
                 'UniswapV3Staker::unstakeToken: only owner can withdraw token before incentive end time'
             );
         }
@@ -290,12 +293,13 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall, NeedInitialize {
         address to,
         uint256 amountRequested
     ) external override returns (uint256 reward) {
-        reward = rewards[rewardToken][msg.sender];
+        address from = (address(FarmController) == msg.sender)? to : msg.sender;
+        reward = rewards[rewardToken][from];
         if (amountRequested != 0 && amountRequested < reward) {
             reward = amountRequested;
         }
 
-        rewards[rewardToken][msg.sender] -= reward;
+        rewards[rewardToken][from] -= reward;
         TransferHelperExtended.safeTransfer(address(rewardToken), to, reward);
 
         emit RewardClaimed(to, reward);
