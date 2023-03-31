@@ -60,7 +60,7 @@ library RewardMath {
 
         uint256 l = (nonBoostFactor * secondsInsideX128) / 100;
         if(boostTotalSupply > 0){
-            l += (((totalSecondsUnclaimedX128 * boostBalance) / boostTotalSupply) * (100 - nonBoostFactor)) / 100;
+            l += (((secondsInsideX128 * boostBalance) / boostTotalSupply) * (100 - nonBoostFactor)) / 100;
         }
         if (l > secondsInsideX128) {
             l = secondsInsideX128;
