@@ -67,6 +67,7 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
 
     /// @notice Represents a staking incentive
     /// @param key The ID of the incentive computed from its parameters
+    /// @return totalRewardClaimed The amount of reward token already claimed by users
     /// @return totalRewardUnclaimed The amount of reward token not yet claimed by users
     /// @return totalSecondsClaimedX128 Total liquidity-seconds claimed, represented as a UQ32.128
     /// @return numberOfStakes The count of deposits that are currently staked for the incentive
@@ -74,9 +75,19 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
         external
         view
         returns (
+            uint256 totalRewardClaimed,
             uint256 totalRewardUnclaimed,
             uint160 totalSecondsClaimedX128,
             uint96 numberOfStakes
+        );
+    /// @notice Represents produced rewards per user
+    /// @param user, address of user
+    /// @param keyIP The ID of the incentive computed from its parameters
+    /// @return rewardProduced The amount of reward token not produced by users 
+    function userRewardProduced(address user, bytes32 keyIP) external
+        view
+        returns (
+            uint256
         );
 
     /// @notice Returns information about a deposited NFT

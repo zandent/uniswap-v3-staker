@@ -18,10 +18,12 @@ import '@uniswap/v3-core/contracts/interfaces/IERC20Minimal.sol';
 import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol';
 import '@uniswap/v3-periphery/contracts/base/Multicall.sol';
 
+import "./roles/WhitelistedRole.sol";
 /// @title Uniswap V3 canonical staking interface
-contract UniswapV3Staker is IUniswapV3Staker, Multicall, NeedInitialize {
+contract UniswapV3Staker is IUniswapV3Staker, Multicall, NeedInitialize, WhitelistedRole {
     /// @notice Represents a staking incentive
     struct Incentive {
+        uint256 totalRewardClaimed;
         uint256 totalRewardUnclaimed;
         uint160 totalSecondsClaimedX128;
         uint96 numberOfStakes;
@@ -60,6 +62,9 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall, NeedInitialize {
     /// @dev pool address to pid in farmcontroller
     mapping(address => uint256) public pidsInFC;
 
+    /// @dev address: msg.sender, bytes32: incentiveIdWOPool userRewardProduced
+    mapping(address =>  mapping(bytes32 => uint256)) public  override userRewardProduced;
+
     /// @dev deposits[tokenId] => Deposit
     mapping(uint256 => Deposit) public override deposits;
 
@@ -96,6 +101,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall, NeedInitialize {
         uint256 _maxIncentiveDuration,
         IFarmController _FarmController
     ) external onlyInitializeOnce {
+        _addWhitelistAdmin(msg.sender);
         factory = _factory;
         nonfungiblePositionManager = _nonfungiblePositionManager;
         maxIncentiveStartLeadTime = _maxIncentiveStartLeadTime;
@@ -103,7 +109,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall, NeedInitialize {
         FarmController = _FarmController;
     }
 
-    function createIncentive(IncentiveKey memory key, uint256 reward, uint256 pid) external override {
+    function createIncentive(IncentiveKey memory key, uint256 reward, uint256 pid) external override onlyWhitelistAdmin{
         // require(reward > 0, 'UniswapV3Staker::createIncentive: reward must be positive');
         require(
             block.timestamp <= key.startTime,
@@ -280,6 +286,10 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall, NeedInitialize {
         // this only overflows if a token has a total supply greater than type(uint256).max
         rewards[key.rewardToken][deposit.owner] += reward;
 
+        incentive.totalRewardClaimed += reward;
+        bytes32 incentiveIdIP = IncentiveId.computeIgnoringPool(key);
+        userRewardProduced[owner][incentiveIdIP] += reward;
+
         Stake storage stake = _stakes[tokenId][incentiveId];
         delete stake.secondsPerLiquidityInsideInitialX128;
         delete stake.liquidityNoOverflow;
@@ -449,7 +459,11 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall, NeedInitialize {
         incentive.totalRewardUnclaimed -= reward;
         // this only overflows if a token has a total supply greater than type(uint256).max
         rewards[key.rewardToken][deposit.owner] += reward;
-
+        
+        incentive.totalRewardClaimed += reward;
+        bytes32 incentiveIdIP = IncentiveId.computeIgnoringPool(key);
+        userRewardProduced[to][incentiveIdIP] += reward;
+        
         Stake storage stake = _stakes[tokenId][incentiveId];
         delete stake.secondsPerLiquidityInsideInitialX128;
         delete stake.liquidityNoOverflow;
