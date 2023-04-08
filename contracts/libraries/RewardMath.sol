@@ -3,7 +3,7 @@ pragma solidity =0.7.6;
 
 import '@uniswap/v3-core/contracts/libraries/FullMath.sol';
 import '@openzeppelin/contracts/math/Math.sol';
-
+import '../interfaces/IUniswapV3Staker.sol';
 /// @title Math for computing rewards
 /// @notice Allows computing rewards given some parameters of stakes and incentives
 library RewardMath {
@@ -38,5 +38,45 @@ library RewardMath {
             ((Math.max(endTime, currentTime) - startTime) << 128) - totalSecondsClaimedX128;
 
         reward = FullMath.mulDiv(totalRewardUnclaimed, secondsInsideX128, totalSecondsUnclaimedX128);
+    }
+    function computeRewardAmountWithBoosting(
+        IUniswapV3Staker.rewardParam memory params
+    ) internal view returns (uint256 reward, uint160 secondsInsideX128) {
+        // this should never be called before the start time
+        // assert(params.currentTime >= params.startTime);
+        // uint256 nonBoostFactor = params.FarmController.nonBoostFactor();
+        // uint256 boostTotalSupply = params.FarmController.boostTotalSupply();
+        // uint256 boostBalance = params.FarmController.boostBalance(params.owner);
+        // uint256 allocPoint = params.FarmController.getAllocPointByPid(params.pid);
+        // uint256 totalAllocPoint = params.FarmController.totalAllocPoint();
+        // uint256 totalRewardUnclaimedWeighted = params.totalRewardUnclaimed * params.allocPoint / params.totalAllocPoint;
+        // // this operation is safe, as the difference cannot be greater than 1/stake.liquidity
+        // secondsInsideX128 = (params.secondsPerLiquidityInsideX128 - params.secondsPerLiquidityInsideInitialX128) * params.liquidity;
+
+        // uint256 totalSecondsUnclaimedX128 =
+        //     ((params.endTime - params.startTime) << 128) - params.totalSecondsClaimedX128;
+        // uint256 l = (nonBoostFactor * secondsInsideX128) / 100;
+        // if (params.currentTime > params.endTime) {
+        //     l = (nonBoostFactor * params.liquidity) / 100;
+        //     if(boostTotalSupply > 0){
+        //         l += (((params.totalLiquidity * boostBalance) / boostTotalSupply) * (100 - nonBoostFactor - params.FarmController.k2())) / 100;
+        //     }
+        //     if(params.totalRewardClaimed > 0){
+        //         l += (((params.totalLiquidity * params.userRewardProduced) / (params.totalRewardClaimed * allocPoint / totalAllocPoint)) * params.FarmController.k2()) / 100;                
+        //     }
+        //     if (l > params.liquidity) {
+        //         l = params.liquidity;
+        //     }
+        //     reward =  FullMath.mulDiv(totalRewardUnclaimedWeighted, l, params.totalLiquidity);
+        //     secondsInsideX128 = 0;
+        // }else{
+        //     if(boostTotalSupply > 0){
+        //         l += (((secondsInsideX128 * boostBalance) / boostTotalSupply) * (100 - nonBoostFactor)) / 100;
+        //     }
+        //     if (l > secondsInsideX128) {
+        //         l = secondsInsideX128;
+        //     }
+        //     reward = FullMath.mulDiv(totalRewardUnclaimedWeighted, l, totalSecondsUnclaimedX128);
+        // }
     }
 }

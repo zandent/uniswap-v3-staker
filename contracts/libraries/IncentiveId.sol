@@ -11,4 +11,13 @@ library IncentiveId {
     function compute(IUniswapV3Staker.IncentiveKey memory key) internal pure returns (bytes32 incentiveId) {
         return keccak256(abi.encode(key));
     }
+    function computeIgnoringPool(IUniswapV3Staker.IncentiveKey memory key) internal pure returns (bytes32 incentiveId) {
+        IUniswapV3Staker.IncentiveKeyIgnoringPool memory incentiveKeyIgnoringPool = IUniswapV3Staker.IncentiveKeyIgnoringPool({
+            rewardToken: key.rewardToken,
+            startTime: key.startTime,
+            endTime: key.endTime,
+            refundee: key.refundee
+        });
+        return keccak256(abi.encode(incentiveKeyIgnoringPool));
+    }
 }
