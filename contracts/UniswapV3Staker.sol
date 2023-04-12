@@ -143,6 +143,17 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall, NeedInitialize, Whiteli
             })
         );
     }
+    // Update the given pool's reward allocation point. Can only be called by the owner.
+    function set(
+        uint256 _pid,
+        uint256 _allocPoint
+    ) external onlyWhitelistAdmin {
+        uint256 prevAllocPoint = poolInfo[_pid].allocPoint;
+        poolInfo[_pid].allocPoint = _allocPoint;
+        if (prevAllocPoint != _allocPoint) {
+            totalAllocPoint = totalAllocPoint - prevAllocPoint + _allocPoint;
+        }
+    }
     /// @inheritdoc IUniswapV3Staker
     function createIncentive(IncentiveKey memory key, uint256 reward) external override onlyWhitelistAdmin{
         require(reward > 0, 'UniswapV3Staker::createIncentive: reward must be positive');
