@@ -43,3 +43,8 @@ $ UPDATE_SNAPSHOT=1 yarn test
 ```sh
 $ yarn size-contracts
 ```
+
+## Verification
+```bash
+$ npx hardhat --network <networkName> run verify.js
+```
