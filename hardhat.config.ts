@@ -73,6 +73,9 @@ const config: HardhatUserConfig = {
     polygon: {
       url: `https://polygon-mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
     },
+    testnet: {
+      url: 'http://evmtestnet.confluxrpc.com',
+    },
   },
   solidity: {
     compilers: [DEFAULT_COMPILER_SETTINGS],
@@ -82,14 +85,29 @@ const config: HardhatUserConfig = {
     disambiguatePaths: true,
     runOnCompile: false,
   },
+  etherscan: {
+    apiKey: {
+      testnet: 'an api key',
+    },
+    customChains: [
+      {
+        network: "testnet",
+        chainId: 71,
+        urls: {
+          apiURL: "https://evmapi-testnet.confluxscan.net/api",
+          browserURL: "https://evmapi-testnet.confluxscan.net"
+        }
+      }
+    ]
+  },
 }
 
-if (process.env.ETHERSCAN_API_KEY) {
-  config.etherscan = {
-    // Your API key for Etherscan
-    // Obtain one at https://etherscan.io/
-    apiKey: process.env.ETHERSCAN_API_KEY,
-  }
-}
+// if (process.env.ETHERSCAN_API_KEY) {
+//   config.etherscan = {
+//     // Your API key for Etherscan
+//     // Obtain one at https://etherscan.io/
+//     apiKey: process.env.ETHERSCAN_API_KEY,
+//   }
+// }
 
 export default config
