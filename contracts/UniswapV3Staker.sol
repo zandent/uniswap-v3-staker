@@ -89,6 +89,8 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall, NeedInitialize, Whiteli
 
     mapping(address => uint256[]) public tokenIds;
 
+    uint256 public unclaimableEndtime;
+
     /// @inheritdoc IUniswapV3Staker
     function stakes(uint256 tokenId, bytes32 incentiveId)
         public
@@ -119,7 +121,8 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall, NeedInitialize, Whiteli
         uint256 _maxIncentiveDuration,
         address _votingEscrow,
         uint256 _k1,
-        uint256 _k2
+        uint256 _k2,
+        uint256 _unclaimableEndtime
     ) external onlyInitializeOnce {
         _addWhitelistAdmin(msg.sender);
         factory = _factory;
@@ -129,6 +132,7 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall, NeedInitialize, Whiteli
         votingEscrow = IVotingEscrow(_votingEscrow);
         k1 = _k1;
         k2 = _k2;
+        unclaimableEndtime = _unclaimableEndtime;
     }
     // Add a new lp to the pool. Can only be called by the whitelist admin.
     function add(
@@ -159,16 +163,20 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall, NeedInitialize, Whiteli
         require(reward > 0, 'UniswapV3Staker::createIncentive: reward must be positive');
         require(
             block.timestamp <= key.startTime,
-            'UniswapV3Staker::createIncentive: start time must be now or in the future'
+            'UniswapV3Staker: start time must be now or in the future'
         );
         require(
             key.startTime - block.timestamp <= maxIncentiveStartLeadTime,
-            'UniswapV3Staker::createIncentive: start time too far into future'
+            'UniswapV3Staker: start time too far into future'
         );
-        require(key.startTime < key.endTime, 'UniswapV3Staker::createIncentive: start time must be before end time');
+        require(key.startTime < key.endTime, 'UniswapV3Staker: start time must be before end time');
         require(
             key.endTime - key.startTime <= maxIncentiveDuration,
-            'UniswapV3Staker::createIncentive: incentive duration is too long'
+            'UniswapV3Staker: incentive duration is too long'
+        );
+        require(
+            key.endTime > unclaimableEndtime,
+            'UniswapV3Staker: endTime must be longer than unclaimable end time'
         );
 
         totalRewardUnclaimed[IncentiveId.computeIgnoringPool(key)] += reward;
@@ -319,16 +327,17 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall, NeedInitialize, Whiteli
             );
         _checkpoint(incentiveId, tokenId, 0);
         poolStat[incentiveId].totalSupply -= liquidity;
-        // if this overflows, e.g. after 2^32-1 full liquidity seconds have been claimed,
-        // reward rate will fall drastically so it's safe
-        incentive.totalSecondsClaimedX128 += secondsInsideX128;
-        // reward is never greater than total reward unclaimed
-        totalRewardUnclaimed[incentiveIdIP] -= reward;
-        incentive.totalRewardClaimed += reward;
-        // this only overflows if a token has a total supply greater than type(uint256).max
-        rewards[deposit.owner] += reward;
-        userRewardProduced[deposit.owner][incentiveId] += reward;
-
+        if (block.timestamp > unclaimableEndtime) {
+            // if this overflows, e.g. after 2^32-1 full liquidity seconds have been claimed,
+            // reward rate will fall drastically so it's safe
+            incentive.totalSecondsClaimedX128 += secondsInsideX128;
+            // reward is never greater than total reward unclaimed
+            totalRewardUnclaimed[incentiveIdIP] -= reward;
+            incentive.totalRewardClaimed += reward;
+            // this only overflows if a token has a total supply greater than type(uint256).max
+            rewards[deposit.owner] += reward;
+            userRewardProduced[deposit.owner][incentiveId] += reward;
+        }
         Stake storage stake = _stakes[tokenId][incentiveId];
         delete stake.secondsPerLiquidityInsideInitialX128;
         delete stake.liquidityNoOverflow;
