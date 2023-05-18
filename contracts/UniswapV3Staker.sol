@@ -4,7 +4,6 @@ pragma abicoder v2;
 
 import './interfaces/IUniswapV3Staker.sol';
 import './libraries/IncentiveId.sol';
-import './libraries/RewardMath.sol';
 import './libraries/NFTPositionInfo.sol';
 import './libraries/TransferHelperExtended.sol';
 
@@ -186,31 +185,6 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall, NeedInitialize, Whiteli
         emit IncentiveCreated(key.rewardToken, key.pool, key.startTime, key.endTime, key.refundee, reward);
     }
 
-    /// @inheritdoc IUniswapV3Staker
-    function endIncentive(IncentiveKey memory key) external override returns (uint256 refund) {
-        // require(block.timestamp >= key.endTime, 'UniswapV3Staker::endIncentive: cannot end incentive before end time');
-
-        // bytes32 incentiveIdIP = IncentiveId.computeIgnoringPool(key);
-        // bytes32 incentiveId = IncentiveId.compute(key);
-        // Incentive memory incentive = incentives[incentiveId];
-
-        // refund = totalRewardUnclaimed[incentiveIdIP];
-
-        // require(refund > 0, 'UniswapV3Staker::endIncentive: no refund available');
-        // require(
-        //     incentive.numberOfStakes == 0,
-        //     'UniswapV3Staker::endIncentive: cannot end incentive while deposits are staked'
-        // );
-
-        // // issue the refund
-        // totalRewardUnclaimed[incentiveIdIP] = 0;
-        // TransferHelperExtended.safeTransfer(address(key.rewardToken), key.refundee, refund);
-
-        // // note we never clear totalSecondsClaimedX128
-
-        // emit IncentiveEnded(incentiveId, refund);
-    }
-
     /// @notice Upon receiving a Uniswap V3 ERC721, creates the token deposit setting owner to `from`. Also stakes token
     /// in one or more incentives if properly formatted `data` has a length > 0.
     /// @inheritdoc IERC721Receiver
@@ -220,26 +194,6 @@ contract UniswapV3Staker is IUniswapV3Staker, Multicall, NeedInitialize, Whiteli
         uint256 tokenId,
         bytes calldata data
     ) external override returns (bytes4) {
-        // require(
-        //     msg.sender == address(nonfungiblePositionManager),
-        //     'UniswapV3Staker::onERC721Received: not a univ3 nft'
-        // );
-
-        // (, , , , , int24 tickLower, int24 tickUpper, , , , , ) = nonfungiblePositionManager.positions(tokenId);
-
-        // deposits[tokenId] = Deposit({owner: from, numberOfStakes: 0, tickLower: tickLower, tickUpper: tickUpper});
-        // emit DepositTransferred(tokenId, address(0), from);
-
-        // if (data.length > 0) {
-        //     if (data.length == 160) {
-        //         _stakeToken(abi.decode(data, (IncentiveKey)), tokenId);
-        //     } else {
-        //         IncentiveKey[] memory keys = abi.decode(data, (IncentiveKey[]));
-        //         for (uint256 i = 0; i < keys.length; i++) {
-        //             _stakeToken(keys[i], tokenId);
-        //         }
-        //     }
-        // }
         return this.onERC721Received.selector;
     }
     function depositToken(uint256 tokenId) external {

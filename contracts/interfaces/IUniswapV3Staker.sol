@@ -106,11 +106,6 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
     /// @param reward The amount of reward tokens to be distributed
     function createIncentive(IncentiveKey memory key, uint256 reward) external;
 
-    /// @notice Ends an incentive after the incentive end time has passed and all stakes have been withdrawn
-    /// @param key Details of the incentive to end
-    /// @return refund The remaining reward tokens when the incentive is ended
-    function endIncentive(IncentiveKey memory key) external returns (uint256 refund);
-
     /// @notice Transfers ownership of a deposit from the sender to the given recipient
     /// @param tokenId The ID of the token (and the deposit) to transfer
     /// @param to The new owner of the deposit
